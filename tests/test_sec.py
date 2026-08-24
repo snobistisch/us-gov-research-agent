@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import pytest
 
+from us_gov_research.config import Settings
+from us_gov_research.http import GovernmentClient, RequestBudget
 from us_gov_research.tools.sec import search_sec
 
 
@@ -57,3 +60,31 @@ async def test_latest_tesla_risk_factors_use_primary_filing() -> None:
     assert records[0].canonical_url.startswith("https://www.sec.gov/Archives/edgar/data/")
     assert "Supply chain interruptions" in records[0].excerpt
     assert "Unresolved Staff Comments" not in records[0].excerpt
+
+
+@pytest.mark.skipif(
+    os.environ.get("RUN_LIVE_SEC_CONTRACT") != "1",
+    reason="set RUN_LIVE_SEC_CONTRACT=1 to test SEC with your own SEC_USER_AGENT",
+)
+@pytest.mark.asyncio
+async def test_live_sec_contract_retrieves_primary_filing() -> None:
+    settings = Settings()
+    settings.validate_sec_user_agent()
+    client = GovernmentClient(budget=RequestBudget(6), cache=None)
+    try:
+        records = await search_sec(
+            client,
+            user_agent=settings.sec_user_agent,
+            query="risk factors",
+            company="Tesla",
+            form_type="10-K",
+            latest=True,
+            limit=1,
+        )
+    finally:
+        await client.close()
+
+    assert records
+    assert records[0].source == "sec"
+    assert records[0].canonical_url.startswith("https://www.sec.gov/Archives/edgar/data/")
+    assert records[0].excerpt

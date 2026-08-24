@@ -14,7 +14,8 @@ If the repository does not exist yet, explain that you will clone it, safely cre
 Use wording equivalent to:
 
 > Before I install or test this project, you need to supply your own configuration. SEC research
-> requires `SEC_USER_AGENT` with your real name or organization and contact email. Congress.gov,
+> requires `SEC_USER_AGENT` with your real name or organization and a monitored contact email;
+> placeholder and `noreply` addresses are rejected. Congress.gov,
 > Regulations.gov, and GovInfo require one free `DATA_GOV_API_KEY` from
 > https://api.data.gov/signup/. Hermes MCP mode uses Hermes' existing model provider, so it does
 > not need `OPENAI_API_KEY`; that key is needed only for the standalone `research-agent` CLI with
@@ -72,6 +73,13 @@ git status --short
 hermes mcp test us_gov_research
 ```
 
+With the user's ignored `.env` configured, run the opt-in SEC contract test without printing any
+environment value:
+
+```bash
+RUN_LIVE_SEC_CONTRACT=1 pytest tests/test_sec.py -k live_sec_contract
+```
+
 Then perform these live behavioral checks through Hermes:
 
 1. **SEC acceptance:** “What were Tesla's most recently disclosed risk factors?” Confirm that the
@@ -79,7 +87,8 @@ Then perform these live behavioral checks through Hermes:
 2. **Keyless source:** Ask for the latest Debt to the Penny record or a recent Federal Register
    document. Confirm that units and relevant dates are preserved and citations use official URLs.
 3. **api.data.gov source:** Run a small Congress.gov query. Confirm that the configured key works,
-   but never include the key or authenticated request details in the report.
+   but never include the key or authenticated request details in the report. Search for member
+   `Elizabeth Warren` and confirm that bioguide ID `W000817` can be found beyond the first page.
 4. Repeat one query and note whether the second run benefits from the cache without claiming exact
    performance guarantees from a single observation.
 5. Check failure behavior with a deliberately missing key only in an isolated test environment.

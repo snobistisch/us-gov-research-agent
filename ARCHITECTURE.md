@@ -60,7 +60,7 @@ Official retrieval documentation: [SEC EDGAR APIs](https://www.sec.gov/search-fi
 
 #### Policy for this application
 
-Require a non-secret `SEC_USER_AGENT` such as `Organization Name contact@example.com`. Refuse SEC requests when it is absent or looks like a generic HTTP-library default. Use a 5 requests/second token bucket with concurrency 2—comfortably below the SEC's 10 requests/second maximum—and cache immutable accession documents indefinitely.
+Require a non-secret `SEC_USER_AGENT` such as `Organization Name monitored@domain.tld`. Refuse SEC requests when it is absent, lacks a descriptive identity and contact email, or uses a placeholder or `noreply` mailbox. Give an actionable but redacted error for an SEC HTTP 403. Use a 5 requests/second token bucket with concurrency 2—comfortably below the SEC's 10 requests/second maximum—and cache immutable accession documents indefinitely.
 
 ### 2.2 Congress.gov API
 
@@ -75,6 +75,14 @@ Official documentation: [Congress.gov API OpenAPI UI](https://api.congress.gov/)
 Vote coverage needs precise wording. The API now has House roll-call endpoints, but it does not expose an equivalent complete Senate vote API. Bill actions can link to chamber vote records. The agent must say “House roll-call data” or follow the official linked Senate record rather than imply uniform chamber coverage.
 
 Internal policy: 1 request/second with a small burst, use returned rate-limit headers when present, and prefer linked bill text or GovInfo's official package content for quotations.
+
+The official bill, member, and House-vote list operations expose pagination and structural filters,
+but no server-side free-text query parameter. The adapter must paginate using its own `offset`
+values rather than consuming returned `next` URLs, keeping credential handling centralized. It
+scans at most 3,000 member or House-vote rows and 1,000 recent bill rows per tool call so the
+20-request ceiling remains enforceable. If more pages exist, returned evidence carries a coverage
+note; a miss becomes an explicit bounded-coverage error. Exact bill identifiers plus Congress
+number and exact member Bioguide IDs bypass list search.
 
 ### 2.3 Federal Register API
 

@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import re
+
 from dotenv import load_dotenv
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .errors import ConfigurationError
+
+CONTACT_EMAIL = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
+UNMONITORED_MAILBOX = re.compile(r"^(?:no[._-]?reply|do[._-]?not[._-]?reply)$", re.IGNORECASE)
 
 
 class Settings(BaseSettings):
@@ -50,10 +55,20 @@ class Settings(BaseSettings):
     def validate_sec_user_agent(self) -> None:
         """Require a descriptive SEC identity only when an SEC call is made."""
 
-        if not self.sec_user_agent or "example.com" in self.sec_user_agent.lower():
+        match = CONTACT_EMAIL.search(self.sec_user_agent)
+        identity = CONTACT_EMAIL.sub("", self.sec_user_agent).strip(" ()[]<>-–—,;")
+        email = match.group(0) if match else ""
+        mailbox, _, domain = email.partition("@")
+        if (
+            not match
+            or not re.search(r"[A-Za-z]{2}", identity)
+            or "example.com" in self.sec_user_agent.lower()
+            or UNMONITORED_MAILBOX.fullmatch(mailbox)
+            or "noreply" in domain.lower()
+        ):
             raise ConfigurationError(
-                "SEC_USER_AGENT must identify you with a real contact email, for example "
-                "'Your Name you@domain.tld'."
+                "SEC_USER_AGENT must identify a real person or organization and include a "
+                "monitored contact email; placeholder and noreply addresses are not accepted."
             )
 
     def require_data_gov_key(self, source: str) -> str:

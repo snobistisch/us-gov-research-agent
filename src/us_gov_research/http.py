@@ -166,6 +166,16 @@ class GovernmentClient:
                             retryable=True,
                         )
                     if response.status_code >= 400:
+                        if source == "sec" and response.status_code == 403:
+                            raise SourceError(
+                                source,
+                                "SEC rejected the request (HTTP 403). Check SEC_USER_AGENT: use "
+                                "a descriptive person or organization and a monitored contact "
+                                "email; placeholder, noreply, or generic client identities may "
+                                "be blocked. See https://www.sec.gov/about/webmaster-frequently-"
+                                "asked-questions.",
+                                retryable=False,
+                            )
                         raise SourceError(
                             source,
                             f"official API rejected the request (HTTP {response.status_code})",
