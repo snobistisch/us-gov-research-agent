@@ -47,3 +47,19 @@ def test_hermes_example_contains_paths_not_credentials() -> None:
     assert "sampling:\n      enabled: false" in config
     assert "allowed-tools:" in skill
     assert "requires_toolsets:" in skill
+
+
+def test_ai_installers_must_gate_on_user_credentials() -> None:
+    readme = (ROOT / "README.md").read_text()
+    contract = (ROOT / "AGENT_INSTALL.md").read_text()
+    skill = (ROOT / ".hermes" / "skills" / "sec-federal-research" / "SKILL.md").read_text()
+
+    assert readme.index("AGENT_INSTALL.md") < readme.index("## Data sources")
+    assert "Stop before running any install" in contract
+    assert "Do not run a command until they confirm credential readiness" in contract
+    assert "Do not continue until the user replies `configured`" in contract
+    assert "Hermes MCP mode uses Hermes' existing model provider" in contract
+    assert "| `OPENAI_API_KEY` | Not used |" in contract
+    assert "Never read, echo, print" in contract
+    assert "Hermes Installation and Evaluation Report" in contract
+    assert "read `AGENT_INSTALL.md`" in skill

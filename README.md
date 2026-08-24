@@ -4,6 +4,11 @@ An open-source command-line AI research agent for SEC filings and official U.S. 
 
 The agent is deliberately small: one model, seven typed read-only tools, a local cache, and hard request/token ceilings. See [ARCHITECTURE.md](ARCHITECTURE.md) for the researched API limits and design decision.
 
+> **Installing with an AI agent?** The agent must read
+> [AGENT_INSTALL.md](AGENT_INSTALL.md) first. Its first response must explain which user-supplied
+> credentials are needed and pause for credential readiness. It must not install or test until the
+> user later confirms the ignored `.env` is configured. Never paste API keys into chat.
+
 ## Data sources
 
 | Tool | Official source | Key |
@@ -81,6 +86,14 @@ Hermes can act as the orchestrator and call the same seven read-only source adap
 local MCP server. In this mode there is no nested agent or second synthesis call: Hermes plans and
 writes the answer, while this package only retrieves normalized primary-source evidence. The
 standalone `LLM_MODEL` and `OPENAI_API_KEY` settings are therefore not used by the MCP server.
+
+### Credential gate for AI installers
+
+Before an AI agent runs any command, it must follow [AGENT_INSTALL.md](AGENT_INSTALL.md): explain
+that the user must provide `SEC_USER_AGENT` and a free `DATA_GOV_API_KEY`, tell the user to store
+them locally in the ignored `.env`, and wait for confirmation. It must not request or repeat raw
+credentials in chat. `OPENAI_API_KEY` is not required for Hermes MCP mode because Hermes supplies
+the model; it remains necessary for the standalone CLI's default OpenAI configuration.
 
 Install the optional MCP dependency in this repository's virtual environment:
 

@@ -22,6 +22,13 @@ metadata:
 
 # SEC and Federal Research
 
+## Setup guard
+
+If this repository is not installed and configured yet, read `AGENT_INSTALL.md` and follow it
+before running any command. The first user-facing action must be the credential handoff described
+there. Never ask for raw keys in chat and never reveal `.env` values. Do not run installation or
+live tests until the user confirms that local configuration is complete.
+
 Use the `mcp_us_gov_research_*` tools to answer questions about SEC filings and U.S. federal
 government activity. These tools are read-only and return normalized primary-source evidence.
 
