@@ -16,6 +16,7 @@ PAGE_SIZE = 250
 MAX_MEMBER_PAGES = 12
 MAX_BILL_PAGES = 4
 MAX_HOUSE_VOTE_PAGES = 12
+TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 
 
 async def search_congress_api(
@@ -26,10 +27,13 @@ async def search_congress_api(
     resource: CongressResource = "bill",
     congress: int | None = None,
     session: int | None = None,
+    current_member: bool | None = None,
     limit: int = 5,
 ) -> list[EvidenceRecord]:
     """Find bills, members, or House roll-call votes in Congress.gov API v3."""
 
+    if current_member is not None and resource != "member":
+        raise SourceError("congress", "current_member can only be used with member searches")
     params = {"api_key": api_key, "format": "json", "limit": PAGE_SIZE}
     if resource == "bill":
         detail = _parse_bill(query, congress)
@@ -38,7 +42,7 @@ async def search_congress_api(
             payload = await client.get_json(
                 "congress",
                 f"https://api.congress.gov/v3/bill/{bill_congress}/{bill_type}/{number}",
-                params=params,
+                params={"api_key": api_key, "format": "json"},
                 ttl_seconds=21_600,
             )
             bill = payload.get("bill", payload)
@@ -54,7 +58,13 @@ async def search_congress_api(
             max_pages=MAX_BILL_PAGES,
             ttl_seconds=21_600,
         )
-        filtered = _filter_rows(rows, query, ("title", "number", "type"), limit)
+        filtered = _filter_rows(
+            rows,
+            query,
+            ("title", "number", "type"),
+            limit,
+            rank_by_recency=True,
+        )
         results = [
             _bill_evidence(
                 row,
@@ -80,12 +90,25 @@ async def search_congress_api(
             member = payload.get("member", payload)
             if not isinstance(member, dict):
                 raise SourceError("congress", "member detail returned an unexpected shape")
+            member_status = member.get("currentMember")
+            if (
+                current_member is not None
+                and isinstance(member_status, bool)
+                and member_status is not current_member
+            ):
+                raise SourceError(
+                    "congress",
+                    "member detail did not match the requested current-member scope",
+                )
             return [_member_evidence(member, bioguide)]
 
+        member_params = dict(params)
+        if current_member is not None:
+            member_params["currentMember"] = str(current_member).lower()
         all_rows, complete = await _paged_rows(
             client,
             url="https://api.congress.gov/v3/member",
-            params=params,
+            params=member_params,
             collection="members",
             max_pages=MAX_MEMBER_PAGES,
             ttl_seconds=21_600,
@@ -202,14 +225,27 @@ async def _paged_rows(
 
 def _parse_bill(query: str, congress: int | None) -> tuple[int, str, str] | None:
     match = re.search(
-        r"\b(h\.?\s*r\.?|s\.?|h\.?\s*res\.?|s\.?\s*res\.?)\s*(\d+)\b",
+        r"\b("
+        r"h\.?\s*j\.?\s*res\.?|s\.?\s*j\.?\s*res\.?|"
+        r"h\.?\s*con\.?\s*res\.?|s\.?\s*con\.?\s*res\.?|"
+        r"h\.?\s*res\.?|s\.?\s*res\.?|h\.?\s*r\.?|s\.?)"
+        r"\s*(\d+)\b",
         query,
         re.IGNORECASE,
     )
     if not match or congress is None:
         return None
     normalized = re.sub(r"[^a-z]", "", match.group(1).lower())
-    mapping = {"hr": "hr", "s": "s", "hres": "hres", "sres": "sres"}
+    mapping = {
+        "hr": "hr",
+        "s": "s",
+        "hres": "hres",
+        "sres": "sres",
+        "hjres": "hjres",
+        "sjres": "sjres",
+        "hconres": "hconres",
+        "sconres": "sconres",
+    }
     return congress, mapping[normalized], match.group(2)
 
 
@@ -220,23 +256,56 @@ def _ordinal_suffix(value: int) -> str:
 
 
 def _filter_rows(
-    rows: object, query: str, fields: tuple[str, ...], limit: int
+    rows: object,
+    query: str,
+    fields: tuple[str, ...],
+    limit: int,
+    *,
+    rank_by_recency: bool = False,
 ) -> list[dict[str, object]]:
     if not isinstance(rows, list):
         return []
-    terms = [term.lower() for term in re.findall(r"[A-Za-z0-9-]{2,}", query)]
+    terms = _tokens(query)
     if not terms:
         return []
-    scored: list[tuple[int, dict[str, object]]] = []
-    for row in rows:
+    scored: list[tuple[int, tuple[int, str], int, dict[str, object]]] = []
+    for position, row in enumerate(rows):
         if not isinstance(row, dict):
             continue
         haystack = " ".join(str(row.get(field, "")) for field in fields).lower()
-        score = sum(term in haystack for term in terms)
+        tokens = set(_tokens(haystack))
+        score = sum(_term_matches(term, tokens) for term in terms)
         if score:
-            scored.append((score, row))
-    scored.sort(key=lambda item: item[0], reverse=True)
-    return [row for _, row in scored[: max(1, min(limit, 10))]]
+            recency = _bill_recency_key(row) if rank_by_recency else (0, "")
+            scored.append((score, recency, position, row))
+    scored.sort(
+        key=lambda item: (item[0], item[1][0], item[1][1], -item[2]),
+        reverse=True,
+    )
+    return [row for _, _, _, row in scored[: max(1, min(limit, 10))]]
+
+
+def _tokens(value: str) -> list[str]:
+    return [token.lower() for token in TOKEN_RE.findall(value) if len(token) >= 2]
+
+
+def _term_matches(term: str, tokens: set[str]) -> bool:
+    if term in tokens:
+        return True
+    if len(term) < 4:
+        return False
+    return f"{term}s" in tokens
+
+
+def _bill_recency_key(row: dict[str, object]) -> tuple[int, str]:
+    try:
+        congress = int(row.get("congress", 0))
+    except (TypeError, ValueError):
+        congress = 0
+    latest_action = row.get("latestAction")
+    action_date = latest_action.get("actionDate") if isinstance(latest_action, dict) else None
+    date = action_date or row.get("introducedDate") or row.get("updateDate") or ""
+    return congress, str(date)
 
 
 def _bill_evidence(
@@ -249,6 +318,8 @@ def _bill_evidence(
         "sres": "senate-resolution",
         "hjres": "house-joint-resolution",
         "sjres": "senate-joint-resolution",
+        "hconres": "house-concurrent-resolution",
+        "sconres": "senate-concurrent-resolution",
     }
     slug = type_slugs.get(bill_type, bill_type)
     latest_action = bill.get("latestAction", {})
@@ -269,18 +340,69 @@ def _bill_evidence(
 
 
 def _member_evidence(member: dict[str, object], bioguide: str) -> EvidenceRecord:
+    name = _member_name(member, bioguide)
+    party = _member_party(member)
+    state = _text(member.get("state"))
+    district = _text(member.get("district"))
+    details = [f"Congress member {name}"]
+    for label, value in (("party", party), ("state", state), ("district", district)):
+        if value:
+            details.append(f"{label} {value}")
+    normalized_fields = {**member, "normalized_name": name}
+    if party:
+        normalized_fields["normalized_party"] = party
     return evidence(
         source="congress",
-        title=member.get("name", bioguide),
+        title=name,
         canonical_url=f"https://www.congress.gov/member/{bioguide}",
         document_id=bioguide,
         published_at=member.get("updateDate"),
-        excerpt=(
-            f"Congress member {member.get('name')}; party {member.get('partyName')}; "
-            f"state {member.get('state')}; district {member.get('district')}."
-        ),
-        fields=member,
+        excerpt="; ".join(details) + ".",
+        fields=normalized_fields,
     )
+
+
+def _member_name(member: dict[str, object], bioguide: str) -> str:
+    for field in ("name", "invertedOrderName", "directOrderName"):
+        value = _text(member.get(field))
+        if value:
+            return value
+    parts = [
+        _text(member.get(field))
+        for field in ("firstName", "middleName", "lastName", "suffixName")
+    ]
+    combined = " ".join(part for part in parts if part)
+    return combined or bioguide
+
+
+def _member_party(member: dict[str, object]) -> str | None:
+    direct = _text(member.get("partyName"))
+    if direct:
+        return direct
+    history = member.get("partyHistory")
+    if isinstance(history, dict):
+        history = history.get("item", [])
+    if not isinstance(history, list):
+        return None
+    candidates = [item for item in history if isinstance(item, dict)]
+    if not candidates:
+        return None
+
+    def party_rank(item: dict[str, object]) -> tuple[int, str, str]:
+        active = not (item.get("endYear") or item.get("endDate"))
+        start = item.get("startYear") or item.get("startDate") or ""
+        end = item.get("endYear") or item.get("endDate") or ""
+        return int(active), str(start), str(end)
+
+    latest = max(candidates, key=party_rank)
+    return _text(latest.get("partyName")) or _text(latest.get("partyAbbreviation"))
+
+
+def _text(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _add_coverage_note(

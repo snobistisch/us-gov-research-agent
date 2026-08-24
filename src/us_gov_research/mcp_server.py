@@ -116,6 +116,10 @@ async def congress_search(
     resource: Literal["bill", "member", "house_vote"] = "bill",
     congress: Annotated[int | None, Field(ge=1, description="Congress number")] = None,
     session: Annotated[int | None, Field(ge=1, le=2, description="Session number")] = None,
+    current_member: Annotated[
+        bool | None,
+        Field(description="Member only: true=current, false=former, omit=all members"),
+    ] = None,
     limit: Limit = 5,
 ) -> list[dict[str, Any]]:
     """Search Congress.gov; exact bill identifiers are preferred over bounded free text."""
@@ -130,6 +134,7 @@ async def congress_search(
             resource=resource,
             congress=congress,
             session=session,
+            current_member=current_member,
             limit=limit,
         ),
         settings=settings,
