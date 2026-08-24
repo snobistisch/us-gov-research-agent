@@ -37,7 +37,10 @@ government activity. These tools are read-only and return normalized primary-sou
 - Use `mcp_us_gov_research_sec_filings` for company filings, disclosures, XBRL-related filing
   research, and risk factors. Prefer the newest exact form when the user asks for the latest
   disclosure.
-- Use `mcp_us_gov_research_congress_search` for bills, members, and House roll-call votes.
+- Use `mcp_us_gov_research_congress_search` for bills, members, and House roll-call votes. Prefer
+  an exact bill identifier plus Congress number, or an exact member Bioguide ID, when known. Its
+  list endpoints do not offer server-side free-text search, so disclose any returned
+  `coverage_note`.
 - Use `mcp_us_gov_research_federal_register_search` for rules, proposed rules, notices, executive
   orders, and other presidential documents.
 - Use `mcp_us_gov_research_usaspending_search` for contracts, grants, loans, direct payments, and

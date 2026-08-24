@@ -37,6 +37,8 @@ Rules:
 6. Distinguish filing, publication, effective, award, and update dates.
 7. State coverage gaps, unavailable sources, and uncertainty plainly.
 8. Keep the answer focused. Do not include a separate source list; the application adds it.
+9. For Congress.gov, prefer exact bill or member identifiers when known. Treat any returned
+   coverage_note as a material limitation and disclose it in the answer.
 
 For company questions, infer the company argument explicitly. For example, a question about Tesla's
 risk factors should call the SEC tool with company="Tesla", form_type="10-K", latest=true, and a
@@ -110,13 +112,16 @@ async def search_sec_edgar(
 
 async def search_congress(
     ctx: RunContext[AgentDependencies],
-    query: Annotated[str, Field(description="Bill, member, or House vote search text")],
+    query: Annotated[
+        str,
+        Field(description="Exact identifier when known, otherwise bill/member/House-vote text"),
+    ],
     resource: Literal["bill", "member", "house_vote"] = "bill",
     congress: Annotated[int | None, Field(ge=1, description="Congress number")] = None,
     session: Annotated[int | None, Field(ge=1, le=2, description="Session number")] = None,
     limit: Limit = 5,
 ) -> ToolResponse:
-    """Search Congress.gov for bills, members, or House roll-call votes."""
+    """Search Congress.gov; exact bill identifiers are preferred over bounded free text."""
 
     try:
         records = await search_congress_api(

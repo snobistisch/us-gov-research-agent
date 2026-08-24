@@ -59,7 +59,7 @@ Edit `.env` and replace the placeholders. `.env` is ignored by git and must neve
 |---|---|---|
 | `LLM_MODEL` | Yes | Provider/model selector. The default `openai-responses:gpt-5.6-luna` is inexpensive and supports function calling. |
 | `OPENAI_API_KEY` | For the default model | Create your own key at [OpenAI API keys](https://platform.openai.com/api-keys). API usage is paid; never reuse the original author's key. |
-| `SEC_USER_AGENT` | Yes | No key. Use your real name/organization and contact email, such as `Jane Doe jane@domain.tld`, as required by SEC automated-access policy. |
+| `SEC_USER_AGENT` | Yes | No key. Use your real name/organization and a monitored contact email, such as `Jane Doe jane@domain.tld`, as required by SEC automated-access policy. Placeholder and `noreply` addresses are rejected. |
 | `DATA_GOV_API_KEY` | For Congress, Regulations, GovInfo | Register free at [api.data.gov](https://api.data.gov/signup/). One key works with all three sources. |
 
 Federal Register, USAspending, and Treasury Fiscal Data require no key.
@@ -158,9 +158,15 @@ Defaults:
 - 20,000 cumulative input tokens, 10,000 cumulative output tokens, and 2,000 output tokens per model response
 - Source-specific throttling below published limits
 
-The agent retries transient 429/502/503/504 responses with jitter and honors `Retry-After`. It fails rather than answering from model memory when it retrieves no official evidence. SEC filing documents are cached by immutable accession URL. At Luna's documented prices, the default token caps keep the normal orchestration run below `$0.05`; a one-request citation repair is separately capped. Swapping to a more expensive provider/model requires recalibrating these token limits.
+The agent retries transient 429/502/503/504 responses with jitter and honors `Retry-After`. It fails rather than answering from model memory when it retrieves no official evidence. SEC filing documents are cached by immutable accession URL. SEC HTTP 403 errors include safe guidance for repairing `SEC_USER_AGENT` without echoing its value. At Luna's documented prices, the default token caps keep the normal orchestration run below `$0.05`; a one-request citation repair is separately capped. Swapping to a more expensive provider/model requires recalibrating these token limits.
 
-Known coverage limitations are documented in [ARCHITECTURE.md](ARCHITECTURE.md), including the best-effort status of SEC's full-text UI backend and the lack of equivalent comprehensive Senate vote endpoints in Congress.gov API v3.
+Congress.gov's bill, member, and House-vote list endpoints do not provide server-side free-text
+parameters. The adapter therefore paginates with explicit offsets: up to 3,000 member or House-vote
+records and up to 1,000 recent bill records. It reports a `coverage_note` whenever that ceiling is
+reached. Exact bill identifiers and member Bioguide IDs use detail endpoints and are preferred for
+exhaustive retrieval. Other known limitations are documented in
+[ARCHITECTURE.md](ARCHITECTURE.md), including the best-effort status of SEC's full-text UI backend
+and the lack of equivalent comprehensive Senate vote endpoints.
 
 ## Security and secret scanning
 
@@ -185,6 +191,14 @@ pytest
 ```
 
 Normal tests block real model calls and use sanitized fixtures. Live contract tests, when added or enabled, must use a contributor's own environment keys and must never print or record request authentication.
+
+After configuring your ignored `.env`, opt into the real SEC contract check with your own identity:
+
+```bash
+RUN_LIVE_SEC_CONTRACT=1 pytest tests/test_sec.py -k live_sec_contract
+```
+
+The test is skipped by default and never prints `SEC_USER_AGENT`.
 
 ## How citations work
 

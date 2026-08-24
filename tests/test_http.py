@@ -103,3 +103,29 @@ async def test_clients_can_share_source_rate_limiters() -> None:
     finally:
         await first.close()
         await second.close()
+
+
+@pytest.mark.asyncio
+async def test_sec_403_has_actionable_redacted_error() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, request=request)
+
+    client = GovernmentClient(
+        budget=RequestBudget(1),
+        cache=None,
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        with pytest.raises(SourceError) as caught:
+            await client.get_json(
+                "sec",
+                "https://data.sec.gov/submissions/CIK0001318605.json",
+                headers={"User-Agent": "Private Identity private@valid.test"},
+            )
+    finally:
+        await client.close()
+
+    message = str(caught.value)
+    assert "HTTP 403" in message
+    assert "Check SEC_USER_AGENT" in message
+    assert "private@valid.test" not in message
