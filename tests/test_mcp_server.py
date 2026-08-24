@@ -32,6 +32,10 @@ async def test_mcp_exposes_exactly_seven_bounded_tools() -> None:
         assert tool.annotations.read_only_hint is True
         assert tool.annotations.destructive_hint is False
 
+    congress = next(tool for tool in result.tools if tool.name == "congress_search")
+    current_member = congress.input_schema["properties"]["current_member"]
+    assert {item.get("type") for item in current_member["anyOf"]} == {"boolean", "null"}
+
 
 @pytest.mark.asyncio
 async def test_mcp_call_returns_structured_primary_evidence(

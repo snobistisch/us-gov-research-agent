@@ -134,6 +134,10 @@ Only SEC searches require `SEC_USER_AGENT`. Congress.gov, Regulations.gov, and G
 `DATA_GOV_API_KEY`; the remaining three sources are keyless. Missing credentials fail only the
 affected tool, so keyless research remains available.
 
+For Congress member research, Hermes should set `current_member=true` only when the question is
+explicitly about currently serving members, `false` for former members, and omit it for complete
+current-plus-historical coverage. Exact Bioguide IDs use the member detail endpoint directly.
+
 ## Model/provider choice
 
 `LLM_MODEL` uses Pydantic AI's `provider:model` syntax. To switch providers, change that one variable and supply the new provider's conventional key variable. For example:
@@ -163,8 +167,11 @@ The agent retries transient 429/502/503/504 responses with jitter and honors `Re
 Congress.gov's bill, member, and House-vote list endpoints do not provide server-side free-text
 parameters. The adapter therefore paginates with explicit offsets: up to 3,000 member or House-vote
 records and up to 1,000 recent bill records. It reports a `coverage_note` whenever that ceiling is
-reached. Exact bill identifiers and member Bioguide IDs use detail endpoints and are preferred for
-exhaustive retrieval. Other known limitations are documented in
+reached. Free-text matching uses whole tokens rather than arbitrary substrings; bill matches are
+ranked first by matched terms, then Congress number and latest-action date. Exact identifiers for
+all eight bill/resolution types and member Bioguide IDs use detail endpoints and are preferred for
+exhaustive retrieval. An explicit current/former-member filter can reduce first-query latency
+without silently dropping historical members. Other known limitations are documented in
 [ARCHITECTURE.md](ARCHITECTURE.md), including the best-effort status of SEC's full-text UI backend
 and the lack of equivalent comprehensive Senate vote endpoints.
 

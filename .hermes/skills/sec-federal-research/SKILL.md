@@ -1,7 +1,7 @@
 ---
 name: sec-federal-research
 description: Research SEC and federal data with primary citations
-version: 1.0.0
+version: 1.1.0
 author: US Gov Research Agent contributors
 license: MIT
 allowed-tools: >-
@@ -40,7 +40,8 @@ government activity. These tools are read-only and return normalized primary-sou
 - Use `mcp_us_gov_research_congress_search` for bills, members, and House roll-call votes. Prefer
   an exact bill identifier plus Congress number, or an exact member Bioguide ID, when known. Its
   list endpoints do not offer server-side free-text search, so disclose any returned
-  `coverage_note`.
+  `coverage_note`. Set `current_member=true` only for explicitly current-serving member questions,
+  `false` for former members, and omit it when the query should cover both.
 - Use `mcp_us_gov_research_federal_register_search` for rules, proposed rules, notices, executive
   orders, and other presidential documents.
 - Use `mcp_us_gov_research_usaspending_search` for contracts, grants, loans, direct payments, and

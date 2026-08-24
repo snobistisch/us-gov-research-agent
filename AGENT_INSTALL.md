@@ -88,7 +88,8 @@ Then perform these live behavioral checks through Hermes:
    document. Confirm that units and relevant dates are preserved and citations use official URLs.
 3. **api.data.gov source:** Run a small Congress.gov query. Confirm that the configured key works,
    but never include the key or authenticated request details in the report. Search for member
-   `Elizabeth Warren` and confirm that bioguide ID `W000817` can be found beyond the first page.
+   `Elizabeth Warren` with `current_member=true` and confirm bioguide ID `W000817`, normalized name,
+   and party. Then query exact ID `W000817` and confirm the detail route returns the same identity.
 4. Repeat one query and note whether the second run benefits from the cache without claiming exact
    performance guarantees from a single observation.
 5. Check failure behavior with a deliberately missing key only in an isolated test environment.

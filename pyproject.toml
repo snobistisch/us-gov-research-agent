@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "us-gov-research-agent"
-version = "0.2.1"
+version = "0.2.2"
 description = "A cited AI research agent for SEC filings and U.S. federal government data"
 readme = "README.md"
 requires-python = ">=3.11"

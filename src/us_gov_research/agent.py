@@ -39,6 +39,8 @@ Rules:
 8. Keep the answer focused. Do not include a separate source list; the application adds it.
 9. For Congress.gov, prefer exact bill or member identifiers when known. Treat any returned
    coverage_note as a material limitation and disclose it in the answer.
+10. For questions explicitly about currently serving members, set current_member=true. Use false
+    for former members and omit it when both current and historical members are relevant.
 
 For company questions, infer the company argument explicitly. For example, a question about Tesla's
 risk factors should call the SEC tool with company="Tesla", form_type="10-K", latest=true, and a
@@ -119,6 +121,10 @@ async def search_congress(
     resource: Literal["bill", "member", "house_vote"] = "bill",
     congress: Annotated[int | None, Field(ge=1, description="Congress number")] = None,
     session: Annotated[int | None, Field(ge=1, le=2, description="Session number")] = None,
+    current_member: Annotated[
+        bool | None,
+        Field(description="Member only: true=current, false=former, omit=all members"),
+    ] = None,
     limit: Limit = 5,
 ) -> ToolResponse:
     """Search Congress.gov; exact bill identifiers are preferred over bounded free text."""
@@ -131,6 +137,7 @@ async def search_congress(
             resource=resource,
             congress=congress,
             session=session,
+            current_member=current_member,
             limit=limit,
         )
         return ctx.deps.registry.register_many(records)

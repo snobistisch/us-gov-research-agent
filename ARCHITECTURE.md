@@ -84,6 +84,14 @@ scans at most 3,000 member or House-vote rows and 1,000 recent bill rows per too
 note; a miss becomes an explicit bounded-coverage error. Exact bill identifiers plus Congress
 number and exact member Bioguide IDs bypass list search.
 
+Client-side matching must use lexical tokens, not raw substring containment, and rank bill matches
+by term coverage before Congress number and latest-action date. This guards against false positives
+such as `term` in `determination` and against stale records appearing ahead of equally relevant
+recent legislation. The optional `current_member` structural filter is used only when the caller
+explicitly wants current or former members; omitting it preserves complete historical coverage.
+Member list and detail payloads have different schemas, so normalization accepts `name` or
+`invertedOrderName`/`directOrderName` and derives the latest party from `partyHistory`.
+
 ### 2.3 Federal Register API
 
 Official documentation: [Federal Register API v1](https://www.federalregister.gov/developers/documentation/api/v1) and [NARA's API implementation](https://github.com/usnationalarchives/federalregister-api-core).
