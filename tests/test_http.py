@@ -8,7 +8,7 @@ import pytest
 
 from us_gov_research.cache import ResponseCache
 from us_gov_research.errors import BudgetExceeded, SourceError
-from us_gov_research.http import GovernmentClient, RequestBudget
+from us_gov_research.http import GovernmentClient, RequestBudget, build_rate_limiters
 
 
 @pytest.mark.asyncio
@@ -90,3 +90,16 @@ async def test_non_allowlisted_host_is_blocked() -> None:
             await client.get_json("sec", "https://example.com/steal")
     finally:
         await client.close()
+
+
+@pytest.mark.asyncio
+async def test_clients_can_share_source_rate_limiters() -> None:
+    shared = build_rate_limiters()
+    first = GovernmentClient(budget=RequestBudget(1), cache=None, limiters=shared)
+    second = GovernmentClient(budget=RequestBudget(1), cache=None, limiters=shared)
+    try:
+        assert first._limiters is shared
+        assert second._limiters is shared
+    finally:
+        await first.close()
+        await second.close()

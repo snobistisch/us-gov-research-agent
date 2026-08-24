@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "us-gov-research-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "A cited AI research agent for SEC filings and U.S. federal government data"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -29,7 +29,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+hermes = [
+  "mcp>=2,<3",
+]
 dev = [
+  "mcp>=2,<3",
   "pre-commit>=4.0,<5",
   "pytest>=8.3,<10",
   "pytest-asyncio>=0.25,<2",
@@ -38,6 +42,7 @@ dev = [
 
 [project.scripts]
 research-agent = "us_gov_research.cli:main"
+research-agent-mcp = "us_gov_research.mcp_server:main"
 
 [project.urls]
 Documentation = "https://github.com/snobistisch/us-gov-research-agent#readme"

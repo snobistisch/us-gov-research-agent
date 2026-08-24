@@ -1,0 +1,20 @@
+# Merge this server entry into ~/.hermes/config.yaml.
+# Put the three absolute path variables below in ~/.hermes/.env; keep API keys in
+# this project's ignored .env file, which is passed with --env-file.
+skills:
+  external_dirs:
+    - "${US_GOV_RESEARCH_AGENT_SKILLS_DIR}"
+
+mcp_servers:
+  us_gov_research:
+    command: "${US_GOV_RESEARCH_AGENT_BIN}"
+    args:
+      - "--env-file"
+      - "${US_GOV_RESEARCH_AGENT_ENV_FILE}"
+    timeout: 45
+    supports_parallel_tool_calls: true
+    sampling:
+      enabled: false
+    tools:
+      resources: false
+      prompts: false

@@ -77,6 +77,7 @@ class GovernmentClient:
         cache: ResponseCache | None,
         refresh: bool = False,
         transport: httpx.AsyncBaseTransport | None = None,
+        limiters: dict[str, AsyncRateLimiter] | None = None,
     ) -> None:
         self.budget = budget
         self.cache = cache
@@ -87,9 +88,7 @@ class GovernmentClient:
             transport=transport,
             headers={"Accept-Encoding": "gzip, deflate"},
         )
-        self._limiters = {
-            source: AsyncRateLimiter(rate) for source, rate in REQUESTS_PER_SECOND.items()
-        }
+        self._limiters = limiters or build_rate_limiters()
 
     async def __aenter__(self) -> GovernmentClient:
         return self
@@ -252,3 +251,9 @@ class GovernmentClient:
                 except (TypeError, ValueError, OverflowError):
                     pass
         return min((2**attempt) + random.random(), 10.0)
+
+
+def build_rate_limiters() -> dict[str, AsyncRateLimiter]:
+    """Build a complete limiter set that can be shared across parallel clients."""
+
+    return {source: AsyncRateLimiter(rate) for source, rate in REQUESTS_PER_SECOND.items()}

@@ -33,3 +33,17 @@ def test_exactly_seven_agent_tools_are_exposed() -> None:
         "search_regulations_gov",
         "search_govinfo",
     ]
+
+
+def test_hermes_example_contains_paths_not_credentials() -> None:
+    config = (ROOT / "hermes" / "config.example.yaml").read_text()
+    skill = (ROOT / ".hermes" / "skills" / "sec-federal-research" / "SKILL.md").read_text()
+
+    assert "${US_GOV_RESEARCH_AGENT_BIN}" in config
+    assert "${US_GOV_RESEARCH_AGENT_ENV_FILE}" in config
+    assert "${US_GOV_RESEARCH_AGENT_SKILLS_DIR}" in config
+    assert "API_KEY" not in config
+    assert "supports_parallel_tool_calls: true" in config
+    assert "sampling:\n      enabled: false" in config
+    assert "allowed-tools:" in skill
+    assert "requires_toolsets:" in skill

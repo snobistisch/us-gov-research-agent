@@ -45,6 +45,11 @@ class Settings(BaseSettings):
                 "OPENAI_API_KEY is required for the default OpenAI model. "
                 "Copy .env.example to .env and add your own key."
             )
+        self.validate_sec_user_agent()
+
+    def validate_sec_user_agent(self) -> None:
+        """Require a descriptive SEC identity only when an SEC call is made."""
+
         if not self.sec_user_agent or "example.com" in self.sec_user_agent.lower():
             raise ConfigurationError(
                 "SEC_USER_AGENT must identify you with a real contact email, for example "

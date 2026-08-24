@@ -426,3 +426,29 @@ After this architecture is approved, Phase 2 should establish publication safety
 - A repository-wide and full-history secret scan before the final commit. At present there is no git history and no key has been introduced.
 
 No Phase 2 or Phase 3 work should begin until this document is reviewed and the architecture decision is accepted or amended.
+
+## 10. Optional Hermes Agent runtime
+
+Hermes support is an adapter around the accepted architecture, not a second agent. The package
+exposes all seven existing adapters as typed tools on one local stdio MCP server. Hermes owns tool
+selection, parallelization, context, and synthesis; the MCP process owns official-API access,
+normalization, caching, request budgets, and source-specific throttling. This avoids nested model
+calls and their duplicate cost, latency, and debugging surface.
+
+Design choices:
+
+- `mcp>=2,<3` is an optional `hermes` dependency; standalone CLI users do not install it.
+- Every MCP invocation receives a fresh HTTP request budget. Source rate limiters are shared for
+  the lifetime of the server, so parallel Hermes calls cannot each claim a separate quota.
+- Tools return the existing `EvidenceRecord` shape as structured output, including the official
+  `canonical_url`. They do not synthesize, invoke a model, expose arbitrary URLs, or mutate data.
+- The MCP server reads government credentials from an explicitly selected ignored dotenv file.
+  Hermes' checked-in configuration example contains path substitutions only, never credentials.
+- MCP sampling, prompts, and resources are disabled because the server requires tools only.
+- `supports_parallel_tool_calls` is enabled because the tools are independent and read-only.
+- A project-local Hermes skill supplies source routing, prompt-injection resistance, date
+  semantics, failure behavior, and inline primary-citation rules.
+
+This runtime retains the same cache and outbound HTTP ceiling per call. Hermes itself must enforce
+its own turn/tool ceiling; the included skill instructs it to start narrow and expand only when
+evidence is insufficient.

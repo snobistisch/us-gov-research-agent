@@ -23,7 +23,7 @@ USAspending requires each search to target one official award-type group. The ty
 ## Requirements
 
 - Python 3.11 or 3.12
-- An LLM provider API key; the default uses OpenAI
+- An LLM provider API key for the standalone CLI; the default uses OpenAI
 - A real contact email for the SEC `User-Agent`
 - One free api.data.gov key for Congress.gov, Regulations.gov, and GovInfo
 
@@ -37,7 +37,7 @@ cd us-gov-research-agent
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e .
+python -m pip install .
 ```
 
 On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`.
@@ -75,6 +75,52 @@ research-agent --clear-cache
 
 The first command sends data to the selected LLM provider. Official API responses are cached locally in the operating system's user-cache directory; credentials are excluded from cache keys and logs.
 
+## Hermes Agent integration
+
+Hermes can act as the orchestrator and call the same seven read-only source adapters through one
+local MCP server. In this mode there is no nested agent or second synthesis call: Hermes plans and
+writes the answer, while this package only retrieves normalized primary-source evidence. The
+standalone `LLM_MODEL` and `OPENAI_API_KEY` settings are therefore not used by the MCP server.
+
+Install the optional MCP dependency in this repository's virtual environment:
+
+```bash
+python -m pip install '.[hermes]'
+```
+
+Keep the government API settings in the repository's ignored `.env` file. Then add only these three
+non-secret absolute paths to `~/.hermes/.env`:
+
+```dotenv
+US_GOV_RESEARCH_AGENT_BIN=/absolute/path/to/us-gov-research-agent/.venv/bin/research-agent-mcp
+US_GOV_RESEARCH_AGENT_ENV_FILE=/absolute/path/to/us-gov-research-agent/.env
+US_GOV_RESEARCH_AGENT_SKILLS_DIR=/absolute/path/to/us-gov-research-agent/.hermes/skills
+```
+
+Merge [`hermes/config.example.yaml`](hermes/config.example.yaml) into
+`~/.hermes/config.yaml`. The configuration enables parallel calls for independent read-only
+research, disables MCP sampling, and deliberately keeps credentials out of Hermes' YAML file.
+Validate and start it with:
+
+```bash
+hermes mcp test us_gov_research
+hermes chat
+```
+
+The configured external skills directory makes Hermes discover the citation and source-routing
+instructions in [`.hermes/skills/sec-federal-research/SKILL.md`](.hermes/skills/sec-federal-research/SKILL.md)
+from any working directory.
+The exposed names are prefixed by Hermes, for example
+`mcp_us_gov_research_sec_filings`. A useful acceptance prompt is:
+
+```text
+What were Tesla's most recently disclosed risk factors? Cite the SEC filing for every claim.
+```
+
+Only SEC searches require `SEC_USER_AGENT`. Congress.gov, Regulations.gov, and GovInfo require
+`DATA_GOV_API_KEY`; the remaining three sources are keyless. Missing credentials fail only the
+affected tool, so keyless research remains available.
+
 ## Model/provider choice
 
 `LLM_MODEL` uses Pydantic AI's `provider:model` syntax. To switch providers, change that one variable and supply the new provider's conventional key variable. For example:
@@ -108,7 +154,7 @@ Known coverage limitations are documented in [ARCHITECTURE.md](ARCHITECTURE.md),
 Install the Gitleaks pre-commit hook for development:
 
 ```bash
-python -m pip install -e '.[dev]'
+python -m pip install '.[dev]'
 pre-commit install
 pre-commit run --all-files
 ```
@@ -120,7 +166,7 @@ If a secret is ever committed, revoke it first. A later deletion does not remove
 ## Development
 
 ```bash
-python -m pip install -e '.[dev]'
+python -m pip install '.[dev]'
 ruff check .
 pytest
 ```
